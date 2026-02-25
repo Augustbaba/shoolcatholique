@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Controller;
 use App\Models\Note;
 use App\Models\ClasseAnnee;
@@ -17,9 +18,46 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Kreait\Firebase\Contract\Messaging;
 
 class NoteController extends Controller
 {
+    private function notifyParents(array $notes, $matiere, $typeNote, Messaging $messaging): void
+    {
+        $notificationController = new NotificationController($messaging);
+
+        foreach ($notes as $eleveId => $data) {
+            if (empty($data['valeur'])) {
+                continue;
+            }
+
+            // Récupérer l'élève avec son parent
+            $eleve = Eleve::with('parentPrincipal.user')->find($eleveId);
+
+            if (!$eleve || !$eleve->parentPrincipal || !$eleve->parentPrincipal->user) {
+                continue;
+            }
+
+            $parentUser = $eleve->parentPrincipal->user;
+
+            if (!$parentUser->fcm_token) {
+                continue; // Ce parent n'a pas de token FCM
+            }
+
+            $titre = "Nouvelle note pour {$eleve->prenom}";
+            $corps = "{$eleve->prenom} a obtenu {$data['valeur']}/20 en {$matiere->nom_matiere} ({$typeNote->nom})";
+
+            $notificationController->sendFCMNotification(
+                $parentUser->fcm_token,
+                $titre,
+                $corps,
+                ['route' => '/dashboard']
+                // ['route' => '/notes', 'eleve_id' => (string) $eleveId]
+            );
+        }
+    }
+
+
     public function index()
     {
         $notes = Note::with('eleve', 'matiere', 'periode', 'typeNote')
@@ -295,6 +333,8 @@ class NoteController extends Controller
                 }
             }
             DB::commit();
+
+            $this->notifyParents($request->notes, $matiere, $typeNote, app(Messaging::class));
 
             // Nettoyer les sessions
             Session::forget(['note_criteres', 'imported_data']);

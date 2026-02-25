@@ -43,8 +43,8 @@
 <div class="theme-customization-sidebar w-100 bg-base h-100vh overflow-y-auto position-fixed end-0 top-0">
     <div class="d-flex align-items-center gap-3 py-16 px-24 justify-content-between border-bottom">
         <div>
-            <h6 class="text-sm dark:text-white">Theme Settings</h6>
-            <p class="text-xs mb-0 text-neutral-500 dark:text-neutral-200">Customize and preview instantly</p>
+            <h6 class="text-sm">Theme Settings</h6>
+            <p class="text-xs mb-0 text-neutral-500">Customize and preview instantly</p>
         </div>
         <button data-slot="button"
             class="theme-customization-sidebar__close text-neutral-900 bg-transparent text-hover-primary-600 d-flex text-xl">

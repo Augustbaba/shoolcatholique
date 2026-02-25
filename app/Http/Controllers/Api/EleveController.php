@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Eleve;
+use App\Models\Note;
+use Illuminate\Http\Request;
+
+class EleveController extends Controller
+{
+    public function dernieresNotes($id, Request $request)
+    {
+        $limit = $request->get('limit', 5);
+
+        $notes = Note::where('eleve_id', $id)
+            ->with(['matiere', 'periode', 'typeNote'])
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get()
+            ->map(function ($note) {
+                return [
+                    'id' => $note->id,
+                    'valeur' => (float) $note->valeur, // Forcer en float
+                    'matiere_nom' => $note->matiere->nom_matiere,
+                    'periode_nom' => $note->periode->nom,
+                    'type_note_nom' => $note->typeNote->nom,
+                    'commentaire' => $note->commentaire,
+                    'created_at' => $note->created_at->diffForHumans(),
+                ];
+            });
+
+        return response()->json($notes);
+    }
+
+    public function toutesNotes($id)
+    {
+        $notes = Note::where('eleve_id', $id)
+            ->with(['matiere', 'periode', 'typeNote', 'enseignant.user'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($note) {
+                return [
+                    'id' => $note->id,
+                    'valeur' => (float) $note->valeur,
+                    'matiere_nom' => $note->matiere->nom_matiere,
+                    'periode_nom' => $note->periode->nom,
+                    'type_note_nom' => $note->typeNote->nom,
+                    'commentaire' => $note->commentaire,
+                    'created_at' => $note->created_at->format('d/m/Y H:i'),
+                    'enseignant_nom' => '-',
+                    'coefficient' => (float) ($note->matiere->coefficient ?? 1),
+                    'appreciation' => $this->getAppreciation($note->valeur),
+                ];
+            });
+
+        return response()->json($notes);
+    }
+
+    public function statistiques($id)
+    {
+        $notes = Note::where('eleve_id', $id)->get();
+
+        $moyenne = $notes->avg('valeur');
+        $meilleure = $notes->max('valeur');
+        $plusFaible = $notes->min('valeur');
+        $totalNotes = $notes->count();
+
+        return response()->json([
+            'moyenne' => round($moyenne, 2),
+            'meilleure' => $meilleure,
+            'plus_faible' => $plusFaible,
+            'total_notes' => $totalNotes,
+        ]);
+    }
+
+    private function getAppreciation($valeur)
+    {
+        if ($valeur >= 16) return 'Excellent';
+        if ($valeur >= 14) return 'Très bien';
+        if ($valeur >= 12) return 'Bien';
+        if ($valeur >= 10) return 'Passable';
+        if ($valeur >= 8) return 'Insuffisant';
+        return 'Faible';
+    }
+}
