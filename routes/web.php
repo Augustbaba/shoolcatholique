@@ -71,6 +71,13 @@ Route::prefix('notes')->name('notes.')->group(function () {
 });
 });
 
+// routes/web.php
+// Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::resource('communiques', \App\Http\Controllers\Admin\CommuniqueController::class);
+    Route::patch('communiques/{communique}/toggle', [\App\Http\Controllers\Admin\CommuniqueController::class, 'toggle'])->name('communiques.toggle');
+});
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');

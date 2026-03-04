@@ -37,6 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Reçu PDF
     Route::get('/paiements/{paiement}/recu', [PaiementController::class, 'downloadRecu']);
+
+    // Communiqués
+    Route::get('/communiques', [\App\Http\Controllers\Api\CommuniqueApiController::class, 'index']);
+    Route::get('/communiques/{communique}', [\App\Http\Controllers\Api\CommuniqueApiController::class, 'show']);
 });
 
 // Callbacks FedaPay
