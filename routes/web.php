@@ -87,6 +87,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     });
 });
 
+// routes/web.php
+// Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::resource('communiques', \App\Http\Controllers\Admin\CommuniqueController::class);
+    Route::patch('communiques/{communique}/toggle', [\App\Http\Controllers\Admin\CommuniqueController::class, 'toggle'])->name('communiques.toggle');
+});
+
 // ==================== ROUTES ENSEIGNANT ====================
 Route::prefix('enseignant')->name('enseignant.')->middleware(['auth', 'role:enseignant'])->group(function () {
     Route::get('/dashboard', function () {
