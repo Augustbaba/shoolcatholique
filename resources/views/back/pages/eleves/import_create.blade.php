@@ -40,7 +40,16 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="file" class="form-label">Fichier Excel (xlsx, xls, csv)</label>
+                    <label for="sheet_name" class="form-label">Nom de l'onglet (exact) <span class="text-danger">*</span></label>
+                    <input type="text" name="sheet_name" id="sheet_name" class="form-control @error('sheet_name') is-invalid @enderror" placeholder="Ex: 3ème, 3eme A, Tle C, Tle D1" value="{{ old('sheet_name') }}" required>
+                    @error('sheet_name')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                    <small class="text-muted">Entrez le nom exact de l'onglet dans le fichier Excel.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label for="file" class="form-label">Fichier Excel (xlsx, xls, csv) <span class="text-danger">*</span></label>
                     <input type="file" class="form-control @error('file') is-invalid @enderror" id="file" name="file" required accept=".xlsx,.xls,.csv">
                     @error('file')
                         <div class="invalid-feedback">{{ $message }}</div>
@@ -54,8 +63,20 @@
             <hr class="my-4">
 
             <h6>Format attendu :</h6>
-            <p>Le fichier Excel doit contenir les colonnes suivantes (dans cet ordre) : <strong>NOM, PRÉNOM, SEXE (M/F), DATE DE NAISSANCE (JJ/MM/AAAA), TÉLÉPHONE PARENT, NOM PARENT</strong>.</p>
-            <p>Le téléphone parent doit être unique. Si le parent n'existe pas, il sera créé automatiquement avec le nom fourni.</p>
+            <p>Le fichier Excel peut avoir plusieurs onglets. Vous devez indiquer le nom exact de l'onglet à importer.</p>
+            <p>Les colonnes sont détectées automatiquement à partir des en-têtes (ligne 3). Les colonnes suivantes sont recherchées :</p>
+            <ul>
+                <li><strong>MATRICULE</strong> (optionnel, s'il est présent il sera conservé)</li>
+                <li><strong>NOM</strong> (obligatoire)</li>
+                <li><strong>PRÉNOM</strong> ou <strong>PRÉNOMS</strong> (obligatoire)</li>
+                <li><strong>SEXE</strong> (optionnel, M ou F)</li>
+                <li><strong>DATE DE NAISSANCE</strong> (optionnelle, format JJ/MM/AAAA)</li>
+                <li><strong>TÉLÉPHONE PARENT</strong> ou <strong>TÉL. PARENT</strong> (obligatoire, unique)</li>
+                <li><strong>NOM PARENT</strong> (obligatoire, peut être combiné avec PRÉNOM PARENT)</li>
+                <li><strong>PRÉNOM PARENT</strong> (optionnel)</li>
+                <li><strong>N° GSM</strong> (téléphone de l'élève, optionnel, ignoré pour l'instant)</li>
+            </ul>
+            <p>Si le parent n'existe pas (recherche par téléphone), il sera créé automatiquement avec un compte utilisateur.</p>
             <p>Les élèves seront rattachés à la classe-année sélectionnée ci-dessus.</p>
         </div>
     </div>

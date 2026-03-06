@@ -2,16 +2,7 @@
 
 @section('content')
 <div class="dashboard-main-body">
-    <div class="breadcrumb d-flex flex-wrap align-items-center justify-content-between gap-3 mb-24">
-        <div>
-            <h1 class="fw-semibold mb-4 h6 text-primary-light">Prévisualisation des élèves</h1>
-            <div>
-                <a href="" class="text-secondary-light hover-text-primary hover-underline">Dashboard</a>
-                <span class="text-secondary-light">/ <a href="{{ route('admin.eleves.import.create') }}">Importer</a></span>
-                <span class="text-secondary-light">/ Prévisualisation</span>
-            </div>
-        </div>
-    </div>
+    <!-- ... breadcrumb ... -->
 
     <div class="alert alert-info">
         <strong>Classe-année sélectionnée :</strong> {{ $classeAnnee->classe->niveau->nom }} {{ $classeAnnee->classe->suffixe }} - {{ $classeAnnee->anneeScolaire->libelle }}
@@ -41,7 +32,7 @@
                             <thead>
                                 <tr>
                                     <th><input type="checkbox" id="select-all" checked></th>
-                                    <th>Matricule (généré)</th>
+                                    <th>Matricule</th>
                                     <th>Nom</th>
                                     <th>Prénom</th>
                                     <th>Sexe</th>
@@ -59,8 +50,8 @@
                                     <td>{{ $item['matricule'] }}</td>
                                     <td>{{ $item['nom'] }}</td>
                                     <td>{{ $item['prenom'] }}</td>
-                                    <td>{{ $item['sexe'] }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($item['date_naissance'])->format('d/m/Y') }}</td>
+                                    <td>{{ $item['sexe'] ?? '—' }}</td>
+                                    <td>{{ $item['date_naissance'] ? \Carbon\Carbon::parse($item['date_naissance'])->format('d/m/Y') : '—' }}</td>
                                     <td>{{ $item['telephone_parent'] }}</td>
                                     <td>{{ $item['nom_parent'] }}</td>
                                 </tr>

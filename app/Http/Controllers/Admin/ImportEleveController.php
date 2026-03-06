@@ -7,14 +7,15 @@ use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use App\Models\Eleve;
 use App\Models\ClasseAnnee;
-use App\Models\Parents as ParentModel; // ou Parent selon votre modèle
+use App\Models\Parents as ParentModel;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Hash;
 
 class ImportEleveController extends Controller
 {
     /**
-     * Formulaire d'upload (avec choix de la classe-année)
+     * Formulaire d'upload (avec choix de la classe-année et du nom de l'onglet)
      */
     public function create()
     {
@@ -23,26 +24,70 @@ class ImportEleveController extends Controller
     }
 
     /**
-     * Prévisualisation des données du fichier
+     * Prévisualisation des données du fichier pour l'onglet spécifié
      */
     public function preview(Request $request)
     {
         $request->validate([
             'classe_annee_id' => 'required|exists:classe_annees,id',
-            'file' => 'required|mimes:xlsx,xls,csv|max:5120',
+            'file'            => 'required|mimes:xlsx,xls,csv|max:5120',
+            'sheet_name'      => 'required|string|max:100', // nom exact de l'onglet
         ]);
 
         $classeAnnee = ClasseAnnee::with('classe.niveau', 'anneeScolaire')->findOrFail($request->classe_annee_id);
 
+        // Charger le fichier
         $file = $request->file('file');
         $spreadsheet = IOFactory::load($file->getRealPath());
-        $worksheet = $spreadsheet->getActiveSheet();
-        $rows = $worksheet->toArray();
 
+        // Récupérer la feuille par son nom
+        $worksheet = $spreadsheet->getSheetByName($request->sheet_name);
+        if (!$worksheet) {
+            return redirect()->back()->withErrors(['sheet_name' => "L'onglet '{$request->sheet_name}' n'existe pas dans le fichier."]);
+        }
+
+        // Lire les en-têtes (ligne 3)
+        $headers = $worksheet->rangeToArray('A3:' . $worksheet->getHighestColumn() . '3', NULL, TRUE, FALSE)[0];
+        $headers = array_map('trim', $headers);
+
+        // Mapping des colonnes recherchées (clé => libellé attendu)
+        $columnMapping = [
+            'matricule'      => 'MATRICULE',
+            'nom'            => 'NOM',
+            'prenom'         => ['PRÉNOM', 'PRÉNOMS'], // plusieurs variantes possibles
+            'sexe'           => 'SEXE',
+            'date_naissance' => 'DATE DE NAISSANCE',
+            'tel_parent'     => ['TÉLÉPHONE PARENT', 'TÉL. PARENT'],
+            'nom_parent'     => 'NOM PARENT',
+            'prenom_parent'  => 'PRÉNOM PARENT',
+            'tel_eleve'      => 'N° GSM', // optionnel
+        ];
+
+        // Trouver les index des colonnes
+        $colIndexes = [];
+        foreach ($columnMapping as $key => $expected) {
+            $expectedArray = is_array($expected) ? $expected : [$expected];
+            $found = false;
+            foreach ($expectedArray as $label) {
+                $index = array_search($label, $headers);
+                if ($index !== false) {
+                    $colIndexes[$key] = $index;
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                // Si colonne non trouvée, on met null (elle sera ignorée)
+                $colIndexes[$key] = null;
+            }
+        }
+
+        // Récupérer toutes les lignes à partir de la ligne 4
+        $rows = $worksheet->toArray();
         // Supprimer les 3 premières lignes (titre, vide, en-têtes)
         array_shift($rows); // titre
         array_shift($rows); // vide
-        $header = array_shift($rows); // en-têtes
+        array_shift($rows); // en-têtes
 
         $data = [];
         $errors = [];
@@ -53,96 +98,131 @@ class ImportEleveController extends Controller
                 continue;
             }
 
-            // Ordre des colonnes : NOM, PRÉNOM, SEXE, DATE NAISSANCE, TÉLÉPHONE PARENT, NOM PARENT
-            $nom = trim($row[0] ?? '');
-            $prenom = trim($row[1] ?? '');
-            $sexe = strtoupper(trim($row[2] ?? ''));
-            $dateNaissanceFr = trim($row[3] ?? '');
-            $telParent = trim($row[4] ?? '');
-            $nomParentComplet = trim($row[5] ?? '');
+            // Extraire les valeurs selon le mapping
+            $matricule   = isset($colIndexes['matricule']) ? trim($row[$colIndexes['matricule']] ?? '') : '';
+            $nom         = isset($colIndexes['nom']) ? trim($row[$colIndexes['nom']] ?? '') : '';
+            $prenom      = isset($colIndexes['prenom']) ? trim($row[$colIndexes['prenom']] ?? '') : '';
+            $sexe        = isset($colIndexes['sexe']) ? strtoupper(trim($row[$colIndexes['sexe']] ?? '')) : '';
+            $dateNaissanceFr = isset($colIndexes['date_naissance']) ? trim($row[$colIndexes['date_naissance']] ?? '') : '';
+            $telParent    = isset($colIndexes['tel_parent']) ? trim($row[$colIndexes['tel_parent']] ?? '') : '';
+            $nomParent    = isset($colIndexes['nom_parent']) ? trim($row[$colIndexes['nom_parent']] ?? '') : '';
+            $prenomParent = isset($colIndexes['prenom_parent']) ? trim($row[$colIndexes['prenom_parent']] ?? '') : '';
+            $telEleve     = isset($colIndexes['tel_eleve']) ? trim($row[$colIndexes['tel_eleve']] ?? '') : '';
 
             $rowErrors = [];
 
+            // Validation des champs obligatoires
             if (empty($nom)) $rowErrors[] = "Nom manquant";
             if (empty($prenom)) $rowErrors[] = "Prénom manquant";
-            if (!in_array($sexe, ['M', 'F'])) $rowErrors[] = "Sexe invalide (M ou F)";
-            if (empty($dateNaissanceFr)) $rowErrors[] = "Date de naissance manquante";
             if (empty($telParent)) $rowErrors[] = "Téléphone parent manquant";
-            if (empty($nomParentComplet)) $rowErrors[] = "Nom parent manquant";
+            if (empty($nomParent) && empty($prenomParent)) {
+                $rowErrors[] = "Nom du parent manquant (ni nom ni prénom parent fourni)";
+            }
+
+            // Sexe : optionnel, mais si présent doit être M ou F
+            if (!empty($sexe) && !in_array($sexe, ['M', 'F'])) {
+                $rowErrors[] = "Sexe invalide (doit être M ou F)";
+            }
+
+            // Date de naissance : optionnelle, mais si présente doit être valide
+            if (!empty($dateNaissanceFr)) {
+                try {
+                    $dateNaissance = Carbon::createFromFormat('d/m/Y', $dateNaissanceFr)->format('Y-m-d');
+                } catch (\Exception $e) {
+                    $rowErrors[] = "Format de date invalide (utilisez JJ/MM/AAAA)";
+                    $dateNaissance = null;
+                }
+            } else {
+                $dateNaissance = null;
+            }
 
             if (!empty($rowErrors)) {
                 $errors[$index+5] = $rowErrors; // +5 car on a enlevé 3 lignes + index 0
                 continue;
             }
 
-            // Conversion de la date française (j/m/Y) en Y-m-d
-            try {
-                $dateNaissance = Carbon::createFromFormat('d/m/Y', $dateNaissanceFr)->format('Y-m-d');
-            } catch (\Exception $e) {
-                $errors[$index+5][] = "Format de date invalide (utilisez JJ/MM/AAAA)";
-                continue;
-            }
-
-            // Gestion du parent : chercher par téléphone, sinon créer
+            // --- Gestion du parent ---
+            // Chercher par téléphone
             $parent = ParentModel::where('telephone', $telParent)->first();
             if (!$parent) {
-                // Séparer le nom complet en nom et prénom (premier mot = nom, reste = prénom)
-                $nomParentParts = explode(' ', $nomParentComplet, 2);
-                $nomParent = $nomParentParts[0];
-                $prenomParent = isset($nomParentParts[1]) ? $nomParentParts[1] : '';
-
                 // Créer un utilisateur parent
+                $nomParentFinal = $nomParent;
+                $prenomParentFinal = $prenomParent;
+
+                // Si le prénom parent est vide mais que le nom parent contient plusieurs mots, on sépare
+                if (empty($prenomParentFinal) && !empty($nomParentFinal)) {
+                    $parts = explode(' ', $nomParentFinal, 2);
+                    $nomParentFinal = $parts[0];
+                    $prenomParentFinal = $parts[1] ?? '';
+                }
+
+                // Si toujours vide, on met une valeur par défaut
+                if (empty($nomParentFinal)) {
+                    $nomParentFinal = 'Inconnu';
+                }
+
                 $user = \App\Models\User::create([
-                    'name' => $nomParentComplet,
-                    'email' => $this->generateEmail($prenomParent ?: $nomParent, $nomParent),
-                    'password' => \Hash::make('password123'),
-                    'role' => 'parent',
-                    'actif' => true,
+                    'name'     => trim($nomParentFinal . ' ' . $prenomParentFinal),
+                    'email'    => $this->generateEmail($prenomParentFinal ?: $nomParentFinal, $nomParentFinal),
+                    'password' => Hash::make('password123'),
+                    'role'     => 'parent',
+                    'actif'    => true,
                 ]);
 
                 $parent = ParentModel::create([
-                    'user_id' => $user->id,
-                    'nom' => $nomParent,
-                    'prenom' => $prenomParent,
-                    'telephone' => $telParent,
-                    'whatsapp' => null,
+                    'user_id'    => $user->id,
+                    'nom'        => $nomParentFinal,
+                    'prenom'     => $prenomParentFinal,
+                    'telephone'  => $telParent,
+                    'whatsapp'   => null,
                     'profession' => null,
-                    'adresse' => null,
+                    'adresse'    => null,
                 ]);
             }
 
-            // Génération d'un matricule unique (ex: TERM-2025-001)
-            // On peut utiliser le préfixe de la classe + année + numéro
-            $prefixe = strtoupper(substr($classeAnnee->classe->niveau->nom, 0, 3)) . '-' . $classeAnnee->anneeScolaire->libelle;
-            // Compter les élèves existants dans cette classe-année pour définir le prochain numéro
-            $count = Eleve::where('classe_annee_id', $classeAnnee->id)->count();
-            $numero = str_pad($count + count($data) + 1, 3, '0', STR_PAD_LEFT);
-            $matricule = $prefixe . '-' . $numero;
+            // --- Gestion du matricule ---
+            if (empty($matricule)) {
+                // Générer un matricule si absent
+                $prefixe = strtoupper(substr($classeAnnee->classe->niveau->nom, 0, 3)) . '-' . $classeAnnee->anneeScolaire->libelle;
+                $count = Eleve::where('classe_annee_id', $classeAnnee->id)->count();
+                $numero = str_pad($count + count($data) + 1, 3, '0', STR_PAD_LEFT);
+                $matricule = $prefixe . '-' . $numero;
 
-            // Éviter les doublons de matricule (au cas où plusieurs imports simultanés)
-            while (Eleve::where('matricule', $matricule)->exists()) {
-                $numero++;
-                $matricule = $prefixe . '-' . str_pad($numero, 3, '0', STR_PAD_LEFT);
+                // Éviter les doublons
+                while (Eleve::where('matricule', $matricule)->exists()) {
+                    $numero++;
+                    $matricule = $prefixe . '-' . str_pad($numero, 3, '0', STR_PAD_LEFT);
+                }
+            } else {
+                // Vérifier si le matricule existe déjà
+                if (Eleve::where('matricule', $matricule)->exists()) {
+                    // On peut soit générer un nouveau, soit signaler une erreur
+                    // Ici on génère un nouveau pour éviter les conflits
+                    $originalMatricule = $matricule;
+                    $matricule = $this->generateUniqueMatricule($matricule);
+                    $rowErrors[] = "Matricule '$originalMatricule' déjà existant, remplacé par '$matricule'";
+                    // On continue mais on note l'erreur
+                }
             }
 
             // Ligne valide
             $data[] = [
-                'index' => $index,
-                'matricule' => $matricule,
-                'nom' => $nom,
-                'prenom' => $prenom,
-                'sexe' => $sexe,
-                'date_naissance' => $dateNaissance,
-                'telephone_parent' => $telParent,
-                'nom_parent' => $nomParentComplet,
+                'index'           => $index,
+                'matricule'       => $matricule,
+                'nom'             => $nom,
+                'prenom'          => $prenom,
+                'sexe'            => $sexe ?: null,
+                'date_naissance'  => $dateNaissance,
+                'telephone_parent'=> $telParent,
+                'nom_parent'      => $nomParent . ' ' . $prenomParent,
                 // Données pour l'insertion
-                '_parent_id' => $parent->id,
-                '_classe_annee_id' => $classeAnnee->id,
+                '_parent_id'      => $parent->id,
+                '_classe_annee_id'=> $classeAnnee->id,
                 '_date_naissance_obj' => $dateNaissance,
             ];
         }
 
-        // Stocker en session
+        // Stocker en session pour l'import final
         Session::put('import_eleves_data', $data);
         Session::put('import_eleves_errors', $errors);
         Session::put('import_eleves_classe_annee', $classeAnnee->id);
@@ -212,5 +292,19 @@ class ImportEleveController extends Controller
             $i++;
         }
         return $email;
+    }
+
+    /**
+     * Génère un matricule unique à partir d'un matricule existant
+     */
+    private function generateUniqueMatricule($baseMatricule)
+    {
+        $original = $baseMatricule;
+        $i = 1;
+        while (Eleve::where('matricule', $baseMatricule)->exists()) {
+            $baseMatricule = $original . '-' . $i;
+            $i++;
+        }
+        return $baseMatricule;
     }
 }
