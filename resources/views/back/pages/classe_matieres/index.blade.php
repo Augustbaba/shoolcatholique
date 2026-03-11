@@ -57,7 +57,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="coefficient" class="form-label">Coefficient</label>
-                            <input type="number" step="0.5" min="0.5" max="10" class="form-control @error('coefficient') is-invalid @enderror" id="coefficient" name="coefficient" value="{{ old('coefficient') }}" required>
+                            <input type="number" step="0.01" min="0.1" max="10" class="form-control @error('coefficient') is-invalid @enderror" id="coefficient" name="coefficient" value="{{ old('coefficient') }}" required>
                             @error('coefficient')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -85,30 +85,25 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($coefficients as $matiereId => $coefficient)
-                                    @php
-                                        $matiere = $matieres->find($matiereId);
-                                    @endphp
-                                    @if($matiere)
-                                    <tr>
-                                        <td>{{ $matiere->nom_matiere }}</td>
-                                        <td>
-                                            <form action="{{ route('admin.classe-matieres.update', [$classeAnnee, $matiere]) }}" method="POST" class="d-flex align-items-center gap-2">
-                                                @csrf
-                                                @method('PUT')
-                                                <input type="number" step="0.5" min="0.5" max="10" name="coefficient" value="{{ $coefficient->pivot->coefficient }}" class="form-control form-control-sm" style="width: 80px;">
-                                                <button type="submit" class="btn btn-sm btn-primary">Màj</button>
-                                            </form>
-                                        </td>
-                                        <td>
-                                            <form action="{{ route('admin.classe-matieres.destroy', [$classeAnnee, $matiere]) }}" method="POST" onsubmit="return confirm('Supprimer cette association ?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-danger"><i class="ri-delete-bin-line"></i></button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    @endif
+                                @foreach($coefficients as $matiere)
+                                <tr>
+                                    <td>{{ $matiere->nom_matiere }}</td>
+                                    <td>
+                                        <form action="{{ route('admin.classe-matieres.update', [$classeAnnee, $matiere]) }}" method="POST" class="d-flex align-items-center gap-2">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="number" step="0.01" min="0.1" max="10" name="coefficient" value="{{ $matiere->pivot->coefficient }}" class="form-control form-control-sm" style="width: 80px;">
+                                            <button type="submit" class="btn btn-sm btn-primary">Màj</button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <form action="{{ route('admin.classe-matieres.destroy', [$classeAnnee, $matiere]) }}" method="POST" onsubmit="return confirm('Supprimer cette association ?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger"><i class="ri-delete-bin-line"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
                                 @endforeach
                             </tbody>
                         </table>

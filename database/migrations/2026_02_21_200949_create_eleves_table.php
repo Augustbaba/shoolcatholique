@@ -10,8 +10,8 @@ return new class extends Migration {
             $table->string('matricule', 20)->unique();
             $table->string('nom', 50);
             $table->string('prenom', 50);
-            $table->enum('sexe', ['M', 'F']);
-            $table->date('date_naissance');
+            $table->enum('sexe', ['M', 'F'])->nullable();
+            $table->date('date_naissance')->nullable();
             $table->string('photo')->nullable();
             $table->foreignId('classe_annee_id')->constrained('classe_annees');
             $table->foreignId('parent_id')->constrained('parents'); // parent principal

@@ -13,12 +13,14 @@ class ClasseMatiereController extends Controller
     /**
      * Affiche la liste des associations pour une classe donnée.
      */
-   public function index(ClasseAnnee $classeAnnee)
-{
-    $matieres = Matiere::all();
-    $coefficients = $classeAnnee->matieres()->get()->keyBy('id');
-    return view('back.pages.classe_matieres.index', compact('classeAnnee', 'matieres', 'coefficients'));
-}
+    public function index(ClasseAnnee $classeAnnee)
+    {
+        $matieres = Matiere::all();
+        // Récupérer les matières associées avec leur coefficient (via pivot)
+        $coefficients = $classeAnnee->matieres()->get();
+
+        return view('back.pages.classe_matieres.index', compact('classeAnnee', 'matieres', 'coefficients'));
+    }
 
     /**
      * Enregistre une nouvelle association (ou met à jour le coefficient).
@@ -27,7 +29,7 @@ class ClasseMatiereController extends Controller
     {
         $request->validate([
             'matiere_id'   => 'required|exists:matieres,id',
-            'coefficient'  => 'required|numeric|min:0.5|max:10',
+            'coefficient'  => 'required|numeric|min:0.1|max:10',
         ]);
 
         // Vérifier si l'association existe déjà
@@ -53,7 +55,7 @@ class ClasseMatiereController extends Controller
     public function update(Request $request, ClasseAnnee $classeAnnee, Matiere $matiere)
     {
         $request->validate([
-            'coefficient' => 'required|numeric|min:0.5|max:10',
+            'coefficient' => 'required|numeric|min:0.1|max:10',
         ]);
 
         $association = ClasseMatiere::where('classe_annee_id', $classeAnnee->id)
@@ -78,3 +80,5 @@ class ClasseMatiereController extends Controller
         return back()->with('success', 'Matière retirée de la classe.');
     }
 }
+
+
