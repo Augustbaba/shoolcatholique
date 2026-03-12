@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\NoteController;
 use App\Http\Controllers\Admin\TypeNoteController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin;
@@ -77,14 +78,24 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     // Périodes
     Route::resource('periodes', App\Http\Controllers\Admin\PeriodeController::class)->except(['show']);
 
-    Route::prefix('notes')->name('notes.')->group(function () {
-        Route::get('/', [Admin\NoteController::class, 'index'])->name('index');
-        Route::get('/create', [Admin\NoteController::class, 'create'])->name('create');
-        Route::match(['get', 'post'], '/preview', [Admin\NoteController::class, 'preview'])->name('preview');
-        Route::post('/store', [Admin\NoteController::class, 'store'])->name('store');
-        Route::get('/export-template', [Admin\NoteController::class, 'exportTemplate'])->name('export-template');
-        Route::post('/import-preview', [Admin\NoteController::class, 'importPreview'])->name('import-preview');
-    });
+
+
+    Route::get('/notes',                   [NoteController::class, 'index'])->name('notes.index');
+    Route::get('/notes/create',            [NoteController::class, 'create'])->name('notes.create');
+    Route::match(['get','post'],'/notes/preview', [NoteController::class, 'preview'])->name('notes.preview');
+ 
+    Route::get('/notes/export-template',   [NoteController::class, 'exportTemplate'])->name('notes.export-template');
+    Route::post('/notes/import-preview',   [NoteController::class, 'importPreview'])->name('notes.import-preview');
+ 
+    // 🆕 Import par photo IA
+    Route::post('/notes/import-image',     [NoteController::class, 'importImage'])->name('notes.import-image');
+ 
+    // 🆕 Export PDF officiel CCPA
+    Route::get('/notes/export-pdf',        [NoteController::class, 'exportPdf'])->name('notes.export-pdf');
+ 
+    Route::post('/notes',                  [NoteController::class, 'store'])->name('notes.store');
+ 
+
 });
 
 // routes/web.php

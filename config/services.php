@@ -41,4 +41,8 @@ return [
         'environment' => env('FEDAPAY_ENVIRONMENT', 'sandbox'),
     ],
 
+    'mistral' => [
+    'api_key' => env('MISTRAL_API_KEY'),
+],
+
 ];
