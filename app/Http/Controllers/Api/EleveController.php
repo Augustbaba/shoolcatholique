@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClasseMatiere;
 use App\Models\Eleve;
 use App\Models\Note;
 use Illuminate\Http\Request;
@@ -35,22 +36,33 @@ class EleveController extends Controller
 
     public function toutesNotes($id)
     {
+        $eleve = Eleve::with('classeAnnee')->findOrFail($id);
+
+        // Charger tous les coefficients de la classe en une seule requête
+        $coefficients = ClasseMatiere::where('classe_annee_id', $eleve->classeAnnee->id)
+            ->get()
+            ->keyBy('matiere_id'); // Map matiere_id → ClasseMatiere
+
         $notes = Note::where('eleve_id', $id)
             ->with(['matiere', 'periode', 'typeNote', 'enseignant.user'])
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($note) {
+            ->map(function ($note) use ($coefficients) {
+                $coefficient = isset($coefficients[$note->matiere_id])
+                    ? (float) $coefficients[$note->matiere_id]->coefficient
+                    : 1;
+
                 return [
-                    'id' => $note->id,
-                    'valeur' => (float) $note->valeur,
-                    'matiere_nom' => $note->matiere->nom_matiere,
-                    'periode_nom' => $note->periode->nom,
-                    'type_note_nom' => $note->typeNote->nom,
-                    'commentaire' => $note->commentaire,
-                    'created_at' => $note->created_at->format('d/m/Y H:i'),
-                    'enseignant_nom' => '-',
-                    'coefficient' => (float) ($note->matiere->coefficient ?? 1),
-                    'appreciation' => $this->getAppreciation($note->valeur),
+                    'id'             => $note->id,
+                    'valeur'         => (float) $note->valeur,
+                    'matiere_nom'    => $note->matiere->nom_matiere,
+                    'periode_nom'    => $note->periode->nom,
+                    'type_note_nom'  => $note->typeNote->nom,
+                    'commentaire'    => $note->commentaire,
+                    'created_at'     => $note->created_at->format('d/m/Y H:i'),
+                    'enseignant_nom' => optional($note->enseignant?->user)->name ?? '-',
+                    'coefficient'    => $coefficient,
+                    'appreciation'   => $this->getAppreciation($note->valeur),
                 ];
             });
 
