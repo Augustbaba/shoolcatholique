@@ -63,7 +63,7 @@
     <ul class="sidebar-menu" id="sidebar-menu">
       <!-- Dashboard -->
       <li>
-        <a href="">
+        <a href="{{ route('admin.dashboard') }}">
           <i class="ri-home-4-line"></i>
           <span>Dashboard</span>
         </a>

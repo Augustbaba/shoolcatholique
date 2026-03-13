@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\NoteController;
 use App\Http\Controllers\Admin\TypeNoteController;
 use Illuminate\Support\Facades\Route;
@@ -23,14 +24,17 @@ Route::get('/index', function () {
 // ==================== ROUTES ADMIN ====================
 Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
     // Dashboard admin
-    Route::get('/dashboard', function () {
-        return view('index');
-    })->name('dashboard');
+
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 
     // Parents
-    Route::get('parents/import', [Admin\ParentController::class, 'showForm'])->name('parents.import.phpoffice');
+     Route::get('parents/import', [Admin\ParentController::class, 'showForm'])->name('parents.import.phpoffice');
     Route::post('parents/import', [Admin\ParentController::class, 'import'])->name('parents.import.phpoffice.post');
-    Route::resource('parents', Admin\ParentController::class)->only(['index']);
+    // Route::resource('parents', Admin\ParentController::class)->only(['index']);
+
+    Route::resource('parents', Admin\ParentController::class)->only(['index', 'edit', 'update', 'destroy']);
+Route::get('parents/{parent}/reset-password', [Admin\ParentController::class, 'resetPasswordForm'])->name('parents.reset-password.form');
+Route::post('parents/{parent}/reset-password', [Admin\ParentController::class, 'resetPassword'])->name('parents.reset-password');
 
     // Niveaux, classes, années, matières
     Route::resource('niveaux', Admin\NiveauController::class)->except(['show']);
@@ -104,7 +108,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::resource('communiques', \App\Http\Controllers\Admin\CommuniqueController::class);
     Route::patch('communiques/{communique}/toggle', [\App\Http\Controllers\Admin\CommuniqueController::class, 'toggle'])->name('communiques.toggle');
 });
-
+Route::get('notes/export-template-excel', [NoteController::class, 'exportTemplateExcel'])
+     ->name('admin.notes.export-template-excel');
 // ==================== ROUTES ENSEIGNANT ====================
 Route::prefix('enseignant')->name('enseignant.')->middleware(['auth', 'role:enseignant'])->group(function () {
     Route::get('/dashboard', function () {

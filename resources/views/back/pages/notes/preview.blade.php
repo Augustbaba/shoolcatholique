@@ -64,55 +64,85 @@
 
     {{-- BOUTONS ACTIONS --}}
     <div class="d-flex flex-wrap gap-2 mb-3">
-        <a href="{{ route('admin.notes.export-template') }}" class="btn btn-outline-primary">
+
+        {{-- Fiche vierge PDF --}}
+        <a href="{{ route('admin.notes.export-template') }}" class="btn btn-outline-primary btn-sm">
             <i class="ri-file-pdf-line me-1"></i>Fiche vierge PDF
         </a>
-        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
+
+        {{-- Template Excel pour import --}}
+        <a href="{{ route('admin.notes.export-template-excel') }}" class="btn btn-outline-success btn-sm">
+            <i class="ri-file-excel-2-line me-1"></i>Template Excel
+        </a>
+
+        {{-- Importer Excel --}}
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+                data-bs-toggle="modal" data-bs-target="#importModal">
             <i class="ri-upload-line me-1"></i>Importer Excel
         </button>
-        <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#importImageModal">
+
+        {{-- Photo IA --}}
+        <button type="button" class="btn btn-outline-info btn-sm"
+                data-bs-toggle="modal" data-bs-target="#importImageModal">
             <i class="ri-camera-line me-1"></i>Photo → IA
             <span class="badge bg-info text-dark ms-1">Mistral Vision</span>
         </button>
-        <a href="{{ route('admin.notes.export-pdf') }}" class="btn btn-danger ms-auto" target="_blank">
+
+        {{-- Export PDF officiel (à droite) --}}
+        <a href="{{ route('admin.notes.export-pdf') }}" class="btn btn-danger btn-sm ms-auto" target="_blank">
             <i class="ri-file-pdf-line me-1"></i>Exporter PDF officiel CCPA
         </a>
     </div>
 
-    {{-- MODAL IMPORT EXCEL --}}
+    {{-- ══════════════════════════════════════════════════════════════
+         MODAL IMPORT EXCEL
+    ══════════════════════════════════════════════════════════════ --}}
     <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form action="{{ route('admin.notes.import-preview') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title">Importer un fichier Excel</h5>
+                        <h5 class="modal-title">
+                            <i class="ri-upload-line me-1"></i>Importer un fichier Excel
+                        </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="alert alert-info py-2 small">
+                            <i class="ri-information-line me-1"></i>
+                            Utilisez le <strong>Template Excel</strong> téléchargeable ci-dessus pour garantir
+                            un import sans erreur. Le fichier doit contenir les colonnes :
+                            <strong>Matricule, Nom, Prénom, Note, Commentaire</strong>.
+                        </div>
                         <div class="mb-3">
                             <label for="import_file" class="form-label">Fichier Excel (.xlsx)</label>
-                            <input type="file" class="form-control @error('import_file') is-invalid @enderror"
-                                   id="import_file" name="import_file" accept=".xlsx,.xls" required>
+                            <input type="file"
+                                   class="form-control @error('import_file') is-invalid @enderror"
+                                   id="import_file" name="import_file"
+                                   accept=".xlsx,.xls" required>
                             @error('import_file')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-                        <p class="text-muted small">Colonnes : Matricule, Nom, Prénom, Note, Commentaire.</p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                        <button type="submit" class="btn btn-primary">Importer</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="ri-upload-line me-1"></i>Importer
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    {{-- MODAL IMPORT IMAGE IA --}}
+    {{-- ══════════════════════════════════════════════════════════════
+         MODAL IMPORT IMAGE IA
+    ══════════════════════════════════════════════════════════════ --}}
     <div class="modal fade" id="importImageModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form action="{{ route('admin.notes.import-image') }}" method="POST" enctype="multipart/form-data"
-                      id="formImportImage">
+                <form action="{{ route('admin.notes.import-image') }}" method="POST"
+                      enctype="multipart/form-data" id="formImportImage">
                     @csrf
                     <div class="modal-header" style="background:#003366;">
                         <h5 class="modal-title text-white">
@@ -125,7 +155,8 @@
                             <i class="ri-information-line fs-5 mt-1 flex-shrink-0"></i>
                             <div>
                                 <strong>Comment ça fonctionne ?</strong><br>
-                                Photographiez votre fiche papier — l'IA lira les notes automatiquement.
+                                Photographiez votre fiche papier — l'IA lira les notes automatiquement
+                                et les associera aux élèves de cette classe.
                             </div>
                         </div>
                         <div class="mb-3">
@@ -155,7 +186,9 @@
         </div>
     </div>
 
-    {{-- FORMULAIRE SAISIE --}}
+    {{-- ══════════════════════════════════════════════════════════════
+         FORMULAIRE SAISIE DES NOTES
+    ══════════════════════════════════════════════════════════════ --}}
     <div class="card">
         <div class="card-header d-flex align-items-center justify-content-between py-2">
             <h6 class="mb-0 fw-semibold">
@@ -209,7 +242,7 @@
                                     <td>{{ $eleve->prenom }}</td>
                                     <td class="text-center">
                                         <input type="number"
-                                               step="0.25" min="0" max="20"
+                                               step="0.01" min="0" max="20"
                                                name="notes[{{ $eleve->id }}][valeur]"
                                                class="form-control form-control-sm text-center
                                                       {{ $aUneNote ? 'border-warning fw-bold' : '' }}"
@@ -267,6 +300,7 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // ── Aperçu image avant envoi IA ──────────────────────────────────
     const fileInput = document.getElementById('image_file');
     if (fileInput) {
         fileInput.addEventListener('change', function (e) {
@@ -280,6 +314,8 @@ document.addEventListener('DOMContentLoaded', function () {
             reader.readAsDataURL(file);
         });
     }
+
+    // ── Spinner pendant l'analyse IA ─────────────────────────────────
     const form = document.getElementById('formImportImage');
     if (form) {
         form.addEventListener('submit', function () {

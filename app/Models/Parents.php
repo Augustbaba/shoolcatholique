@@ -27,8 +27,8 @@ class Parents extends Model
     }
 
 
-    public function eleves()
+   public function eleves()
     {
-        return $this->belongsToMany(Eleve::class, 'eleve_parent')->withPivot('relation');
+        return $this->hasMany(Eleve::class, 'parent_id');
     }
 }

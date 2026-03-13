@@ -46,11 +46,10 @@ class Eleve extends Model
     /**
      * Autres parents (via table pivot eleve_parent)
      */
-    public function parents()
+  
+    public function parent()
     {
-        return $this->belongsToMany(Parents::class, 'eleve_parent')
-                    ->withPivot('relation')
-                    ->withTimestamps();
+        return $this->belongsTo(Parents::class, 'parent_id');
     }
 
     /**
