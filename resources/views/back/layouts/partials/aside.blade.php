@@ -2,66 +2,96 @@
   <button type="button" class="sidebar-close-btn">
     <iconify-icon icon="radix-icons:cross-2"></iconify-icon>
   </button>
+
+  {{-- Logo --}}
   <div class="">
-    <div class="sidebar-logo d-flex align-items-center justify-content-between">
-      <a href="" class="">
-        <img src="{{ asset('assets/images/logo.png') }}" alt="site logo" class="light-logo">
-        <img src="{{ asset('assets/images/logo-light.png') }}" alt="site logo" class="dark-logo">
-        <img src="{{ asset('assets/images/logo-icon.png') }}" alt="site logo" class="logo-icon">
-      </a>
-      <button type="button" class="text-xxl d-xl-flex d-none line-height-1 sidebar-toggle text-neutral-500"
-        aria-label="Collapse Sidebar">
+    <div class="d-flex align-items-center gap-8 mt-10 px-2 py-8 radius-8"
+         style="background:rgba(0,51,102,.06); border:1px solid rgba(0,51,102,.12);">
+      <img src="{{ asset('assets/images/LOGOCCPA.jpeg') }}"
+           alt="CCPA"
+           class="rounded flex-shrink-0"
+           style="width:32px; height:32px; object-fit:contain;">
+      <div class="overflow-hidden">
+        <span class="d-block text-xs fw-bold text-primary-light text-truncate"
+              style="font-size:11px; letter-spacing:.3px;">
+          COMPLEXE CATHOLIQUE
+        </span>
+        <span class="d-block text-secondary-light text-truncate"
+              style="font-size:10px;">
+          PÈRE AUPIAIS — Cotonou
+        </span>
+      </div>
+
+      <button type="button"
+              class="text-xxl d-xl-flex d-none line-height-1 sidebar-toggle text-neutral-500"
+              aria-label="Collapse Sidebar">
         <i class="ri-contract-left-line"></i>
       </button>
     </div>
   </div>
-  <!-- User Info start -->
+
+  {{-- ── USER INFO ───────────────────────────────────────────────── --}}
   <div class="mx-16 py-12">
     <div class="dropdown profile-dropdown">
       <button type="button"
-        class="profile-dropdown__button d-flex align-items-center justify-content-between p-10 w-100 overflow-hidden bg-neutral-50 radius-12 "
-        data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+              class="profile-dropdown__button d-flex align-items-center justify-content-between
+                     p-10 w-100 overflow-hidden bg-neutral-50 radius-12"
+              data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false">
+
         <span class="d-flex align-items-start gap-10">
-          <img src="{{ asset('assets/images/thumbs/leave-request-img2.png') }}" alt="Thumbnail"
-            class="w-40-px h-40-px rounded-circle object-fit-cover flex-shrink-0">
+
+          {{-- Avatar : photo profil si disponible, sinon initiales --}}
+          @php
+            $authUser  = Auth::user();
+            $photoPath = $authUser->photo ?? null;
+            $initiales = strtoupper(mb_substr($authUser->name ?? 'U', 0, 1))
+                       . strtoupper(mb_substr(strstr($authUser->name ?? '', ' '), 1, 1));
+          @endphp
+
+          @if($photoPath && Storage::disk('public')->exists($photoPath))
+            <img src="{{ Storage::url($photoPath) }}"
+                 alt="{{ $authUser->name }}"
+                 class="w-40-px h-40-px rounded-circle object-fit-cover flex-shrink-0">
+          @else
+            <span class="w-40-px h-40-px rounded-circle flex-shrink-0 d-flex align-items-center
+                         justify-content-center fw-bold text-white"
+                  style="background: linear-gradient(135deg, #003366, #0066cc); font-size:14px;">
+              {{ $initiales ?: 'U' }}
+            </span>
+          @endif
+
           <span class="profile-dropdown__contents">
-            <span class="h6 mb-0 text-md d-block text-primary-light">Jone Copper</span>
-            <span class="text-secondary-light text-sm mb-0 d-block">Admin</span>
+            <span class="h6 mb-0 text-md d-block text-primary-light fw-semibold">
+              {{ $authUser->name ?? 'Utilisateur' }}
+            </span>
+            <span class="text-secondary-light text-sm mb-0 d-block">
+              @switch($authUser->role ?? '')
+                @case('admin')       Administrateur @break
+                @case('enseignant')  Enseignant     @break
+                @case('parent')      Parent         @break
+                @default             Utilisateur
+              @endswitch
+            </span>
           </span>
         </span>
+
         <span class="profile-dropdown__icon pe-8 text-xl d-flex line-height-1">
           <i class="ri-arrow-right-s-line"></i>
         </span>
       </button>
-      <ul class="dropdown-menu dropdown-menu-lg-end border p-12">
-        <li>
-          <a href="student-details.html" 
-            class="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6">
-            <i class="ri-user-3-line"></i>
-            My Profile
-          </a>
-        </li>
-        <li>
-          <a href="general.html"
-            class="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6">
-            <i class="ri-settings-3-line"></i>
-            Setting
-          </a>
-        </li>
-        <li>
-          <a href="login.html"
-            class="dropdown-item rounded text-secondary-light bg-hover-neutral-200 text-hover-neutral-900 d-flex align-items-center gap-2 py-6">
-            <i class="ri-shut-down-line"></i>
-            Log Out
-          </a>
-        </li>
-      </ul>
+
+      
     </div>
+
+    {{-- ── Logo / nom de l'école ──────────────────────────────────── --}}
+    
   </div>
-  <!-- User Info end -->
+  {{-- ── /USER INFO ──────────────────────────────────────────────── --}}
+
   <div class="sidebar-menu-area">
     <ul class="sidebar-menu" id="sidebar-menu">
-      <!-- Dashboard -->
+
+      {{-- Dashboard --}}
       <li>
         <a href="{{ route('admin.dashboard') }}">
           <i class="ri-home-4-line"></i>
@@ -69,7 +99,7 @@
         </a>
       </li>
 
-      <!-- Gestion des parents -->
+      {{-- Parents --}}
       <li class="dropdown">
         <a href="javascript:void(0)">
           <i class="ri-account-circle-line"></i>
@@ -92,7 +122,7 @@
         </ul>
       </li>
 
-      <!-- Gestion des élèves -->
+      {{-- Élèves --}}
       <li class="dropdown">
         <a href="javascript:void(0)">
           <i class="ri-group-line"></i>
@@ -115,7 +145,7 @@
         </ul>
       </li>
 
-      <!-- Gestion pédagogique -->
+      {{-- Pédagogie --}}
       <li class="dropdown">
         <a href="javascript:void(0)">
           <i class="ri-book-open-line"></i>
@@ -125,65 +155,59 @@
         <ul class="sidebar-submenu">
           <li>
             <a href="{{ route('admin.niveaux.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Niveaux
+              <i class="ri-circle-fill circle-icon w-auto"></i> Niveaux
             </a>
           </li>
           <li>
             <a href="{{ route('admin.classes.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Classes
+              <i class="ri-circle-fill circle-icon w-auto"></i> Classes
             </a>
           </li>
           <li>
             <a href="{{ route('admin.classe-annees.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Classes par année
+              <i class="ri-circle-fill circle-icon w-auto"></i> Classes par année
             </a>
           </li>
           <li>
             <a href="{{ route('admin.matieres.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Matières
+              <i class="ri-circle-fill circle-icon w-auto"></i> Matières
             </a>
           </li>
           <li>
             <a href="{{ route('admin.periodes.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Périodes
+              <i class="ri-circle-fill circle-icon w-auto"></i> Périodes
             </a>
           </li>
           <li>
             <a href="{{ route('admin.type-notes.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Types de notes
+              <i class="ri-circle-fill circle-icon w-auto"></i> Types de notes
             </a>
           </li>
         </ul>
       </li>
-      <!-- Dans la section des menus, après "Scolarités" par exemple -->
 
-<li class="nav-item">
-    <a href="#menuNotes" data-bs-toggle="collapse" role="button" aria-expanded="false" class="nav-link">
-        <i class="ri-file-list-3-line"></i> Gestion des notes
-        <i class="ri-arrow-down-s-line ms-auto"></i>
-    </a>
-    <ul class="collapse list-unstyled" id="menuNotes">
-        <li><a href="{{ route('admin.periodes.index') }}" class="nav-link ms-3"><i class="ri-calendar-todo-line"></i> Périodes</a></li>
-        <li><a href="{{ route('admin.type-notes.index') }}" class="nav-link ms-3"><i class="ri-price-tag-3-line"></i> Types de notes</a></li>
-        <li><a href="{{ route('admin.notes.create') }}" class="nav-link ms-3"><i class="ri-edit-box-line"></i> Saisie des notes</a></li>
-        <li><a href="{{ route('admin.notes.index') }}" class="nav-link ms-3"><i class="ri-history-line"></i> Historique</a></li>
-    </ul>
-</li>
+      {{-- Notes --}}
+      <li class="dropdown">
+        <a href="javascript:void(0)">
+          <i class="ri-file-list-3-line"></i>
+          <span>Notes</span>
+          <i class="ri-arrow-down-s-line ms-auto"></i>
+        </a>
+        <ul class="sidebar-submenu">
+          <li>
+            <a href="{{ route('admin.notes.create') }}">
+              <i class="ri-circle-fill circle-icon w-auto"></i> Saisie des notes
+            </a>
+          </li>
+          <li>
+            <a href="{{ route('admin.notes.index') }}">
+              <i class="ri-circle-fill circle-icon w-auto"></i> Historique
+            </a>
+          </li>
+        </ul>
+      </li>
 
-<!-- Lien vers la cantine (module futur) -->
-<li class="nav-item">
-    <a href="#" class="nav-link disabled" style="opacity:0.6; pointer-events:none;" aria-disabled="true">
-        <i class="ri-restaurant-line"></i> Cantine (à venir)
-    </a>
-</li>
-
-      <!-- Gestion financière -->
+      {{-- Finance --}}
       <li class="dropdown">
         <a href="javascript:void(0)">
           <i class="ri-money-dollar-circle-line"></i>
@@ -193,15 +217,22 @@
         <ul class="sidebar-submenu">
           <li>
             <a href="{{ route('admin.scolarites.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Scolarités
+              <i class="ri-circle-fill circle-icon w-auto"></i> Scolarités
             </a>
           </li>
-          <!-- Ajouter plus tard : Paiements, etc. -->
         </ul>
       </li>
 
-      <!-- Années scolaires (lien direct) -->
+      {{-- Cantine (à venir) --}}
+      <li>
+        <a href="#" style="opacity:.45; pointer-events:none; cursor:default;">
+          <i class="ri-restaurant-line"></i>
+          <span>Cantine</span>
+          <span class="badge bg-secondary ms-auto" style="font-size:9px;">Bientôt</span>
+        </a>
+      </li>
+
+      {{-- Années scolaires --}}
       <li>
         <a href="{{ route('admin.annees-scolaires.index') }}">
           <i class="ri-calendar-line"></i>
@@ -209,9 +240,7 @@
         </a>
       </li>
 
-      <!-- Autres éléments à venir (cantine, discipline) seront ajoutés plus tard -->
-
-      <!-- Optionnel : Paramètres -->
+      {{-- Paramètres --}}
       <li class="dropdown">
         <a href="javascript:void(0)">
           <i class="ri-settings-3-line"></i>
@@ -221,18 +250,17 @@
         <ul class="sidebar-submenu">
           <li>
             <a href="#">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Général
+              <i class="ri-circle-fill circle-icon w-auto"></i> Général
             </a>
           </li>
           <li>
             <a href="{{ route('admin.communiques.index') }}">
-              <i class="ri-circle-fill circle-icon w-auto"></i>
-              Communiqués
+              <i class="ri-circle-fill circle-icon w-auto"></i> Communiqués
             </a>
           </li>
         </ul>
       </li>
+
     </ul>
   </div>
 </aside>

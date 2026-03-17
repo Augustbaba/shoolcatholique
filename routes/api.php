@@ -41,6 +41,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Communiqués
     Route::get('/communiques', [\App\Http\Controllers\Api\CommuniqueApiController::class, 'index']);
     Route::get('/communiques/{communique}', [\App\Http\Controllers\Api\CommuniqueApiController::class, 'show']);
+
+    Route::post('/change-password', [\App\Http\Controllers\Api\AuthController::class, 'changePassword']);
 });
 
 // Callbacks FedaPay

@@ -88,11 +88,14 @@ class EleveController extends Controller
 
     private function getAppreciation($valeur)
     {
-        if ($valeur >= 16) return 'Excellent';
-        if ($valeur >= 14) return 'Très bien';
-        if ($valeur >= 12) return 'Bien';
-        if ($valeur >= 10) return 'Passable';
-        if ($valeur >= 8) return 'Insuffisant';
-        return 'Faible';
+        if ($valeur == 0)    return 'Nul';
+        if ($valeur < 6)     return 'Médiocre';
+        if ($valeur < 8)     return 'Faible';
+        if ($valeur < 10)    return 'Insuffisant';
+        if ($valeur < 12)    return 'Passable';
+        if ($valeur < 14)    return 'Assez bien';
+        if ($valeur < 16)    return 'Bien';
+        if ($valeur < 18)    return 'Très bien';
+        return 'Excellent';
     }
 }
