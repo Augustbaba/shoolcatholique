@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Controller;
+use App\Models\AnneeScolaire;
 use App\Models\Note;
+use App\Models\Classe;
 use App\Models\ClasseAnnee;
 use App\Models\Matiere;
 use App\Models\Periode;
@@ -53,15 +55,329 @@ class NoteController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // INDEX
+    // INDEX avec filtres et tris
     // ─────────────────────────────────────────────────────────────────
 
-    public function index()
+    public function index(Request $request)
     {
-        $notes = Note::with('eleve', 'matiere', 'periode', 'typeNote')
-                     ->latest()
-                     ->paginate(20);
-        return view('back.pages.notes.index', compact('notes'));
+        $query = Note::with(['eleve.classeAnnee.classe.niveau', 'matiere', 'periode', 'typeNote']);
+        
+        // Application des filtres
+        if ($request->filled('annee_scolaire_id')) {
+            $query->whereHas('eleve.classeAnnee', function($q) use ($request) {
+                $q->where('annee_scolaire_id', $request->annee_scolaire_id);
+            });
+        }
+        
+        if ($request->filled('classe_id')) {
+            $query->whereHas('eleve.classeAnnee', function($q) use ($request) {
+                $q->where('classe_id', $request->classe_id);
+            });
+        }
+        
+        if ($request->filled('periode_id')) {
+            $query->where('periode_id', $request->periode_id);
+        }
+        
+        if ($request->filled('matiere_id')) {
+            $query->where('matiere_id', $request->matiere_id);
+        }
+        
+        if ($request->filled('type_note_id')) {
+            $query->where('type_note_id', $request->type_note_id);
+        }
+        
+        // Filtre par plage de dates
+        if ($request->filled('date_range')) {
+            switch($request->date_range) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'yesterday':
+                    $query->whereDate('created_at', today()->subDay());
+                    break;
+                case 'this_week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'last_week':
+                    $query->whereBetween('created_at', [now()->subWeek()->startOfWeek(), now()->subWeek()->endOfWeek()]);
+                    break;
+                case 'this_month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+                case 'last_month':
+                    $query->whereMonth('created_at', now()->subMonth()->month)
+                          ->whereYear('created_at', now()->subMonth()->year);
+                    break;
+            }
+        }
+        
+        // Recherche par élève
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('eleve', function($q) use ($search) {
+                $q->where('nom', 'like', "%{$search}%")
+                  ->orWhere('prenom', 'like', "%{$search}%")
+                  ->orWhere('matricule', 'like', "%{$search}%");
+            });
+        }
+        
+        // Filtre par note minimale
+        if ($request->filled('note_min')) {
+            $query->where('valeur', '>=', (float)$request->note_min);
+        }
+        
+        // Filtre par note maximale
+        if ($request->filled('note_max')) {
+            $query->where('valeur', '<=', (float)$request->note_max);
+        }
+        
+        // Application du tri
+        $sort = $request->get('sort', 'created_at');
+        $direction = $request->get('direction', 'desc');
+        
+        switch($sort) {
+            case 'id':
+                $query->orderBy('id', $direction);
+                break;
+            case 'classe':
+                $query->join('eleves', 'notes.eleve_id', '=', 'eleves.id')
+                      ->join('classe_annees', 'eleves.classe_annee_id', '=', 'classe_annees.id')
+                      ->join('classes', 'classe_annees.classe_id', '=', 'classes.id')
+                      ->join('niveaux', 'classes.niveau_id', '=', 'niveaux.id')
+                      ->orderBy('niveaux.ordre', $direction)
+                      ->orderBy('classes.suffixe', $direction)
+                      ->select('notes.*');
+                break;
+            case 'eleve':
+                $query->join('eleves', 'notes.eleve_id', '=', 'eleves.id')
+                      ->orderBy('eleves.nom', $direction)
+                      ->orderBy('eleves.prenom', $direction)
+                      ->select('notes.*');
+                break;
+            case 'matiere':
+                $query->join('matieres', 'notes.matiere_id', '=', 'matieres.id')
+                      ->orderBy('matieres.nom_matiere', $direction)
+                      ->select('notes.*');
+                break;
+            case 'periode':
+                $query->join('periodes', 'notes.periode_id', '=', 'periodes.id')
+                      ->orderBy('periodes.created_at', $direction)
+                      ->select('notes.*');
+                break;
+            case 'valeur':
+                $query->orderBy('valeur', $direction);
+                break;
+            default:
+                $query->orderBy('created_at', $direction);
+        }
+        
+        $notes = $query->paginate(20);
+        
+        // Données pour les filtres
+        $anneesScolaires = AnneeScolaire::orderBy('libelle', 'desc')->get();
+        $classes = Classe::with('niveau')->orderByFullName()->get();
+        $periodes = Periode::with('anneeScolaire')->orderBy('created_at', 'desc')->get();
+        $matieres = Matiere::orderBy('nom_matiere')->get();
+        $typeNotes = TypeNote::orderBy('nom')->get();
+        
+        // Variables pour la vue
+        $sortBy = $sort;
+        $sortDirection = $direction;
+        
+        return view('back.pages.notes.index', compact(
+            'notes', 'anneesScolaires', 'classes', 'periodes', 
+            'matieres', 'typeNotes', 'sortBy', 'sortDirection'
+        ));
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // EXPORT EXCEL
+    // ─────────────────────────────────────────────────────────────────
+
+    public function export(Request $request)
+    {
+        $query = Note::with(['eleve.classeAnnee.classe.niveau', 'matiere', 'periode', 'typeNote']);
+        
+        // Appliquer les mêmes filtres que pour l'index
+        if ($request->filled('annee_scolaire_id')) {
+            $query->whereHas('eleve.classeAnnee', function($q) use ($request) {
+                $q->where('annee_scolaire_id', $request->annee_scolaire_id);
+            });
+        }
+        
+        if ($request->filled('classe_id')) {
+            $query->whereHas('eleve.classeAnnee', function($q) use ($request) {
+                $q->where('classe_id', $request->classe_id);
+            });
+        }
+        
+        if ($request->filled('periode_id')) {
+            $query->where('periode_id', $request->periode_id);
+        }
+        
+        if ($request->filled('matiere_id')) {
+            $query->where('matiere_id', $request->matiere_id);
+        }
+        
+        if ($request->filled('type_note_id')) {
+            $query->where('type_note_id', $request->type_note_id);
+        }
+        
+        if ($request->filled('date_range')) {
+            switch($request->date_range) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'yesterday':
+                    $query->whereDate('created_at', today()->subDay());
+                    break;
+                case 'this_week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'last_week':
+                    $query->whereBetween('created_at', [now()->subWeek()->startOfWeek(), now()->subWeek()->endOfWeek()]);
+                    break;
+                case 'this_month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+                case 'last_month':
+                    $query->whereMonth('created_at', now()->subMonth()->month)
+                          ->whereYear('created_at', now()->subMonth()->year);
+                    break;
+            }
+        }
+        
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('eleve', function($q) use ($search) {
+                $q->where('nom', 'like', "%{$search}%")
+                  ->orWhere('prenom', 'like', "%{$search}%")
+                  ->orWhere('matricule', 'like', "%{$search}%");
+            });
+        }
+        
+        if ($request->filled('note_min')) {
+            $query->where('valeur', '>=', (float)$request->note_min);
+        }
+        
+        if ($request->filled('note_max')) {
+            $query->where('valeur', '<=', (float)$request->note_max);
+        }
+        
+        // Application du tri pour l'export
+        $sort = $request->get('sort', 'created_at');
+        $direction = $request->get('direction', 'desc');
+        
+        switch($sort) {
+            case 'classe':
+                $query->join('eleves', 'notes.eleve_id', '=', 'eleves.id')
+                      ->join('classe_annees', 'eleves.classe_annee_id', '=', 'classe_annees.id')
+                      ->join('classes', 'classe_annees.classe_id', '=', 'classes.id')
+                      ->join('niveaux', 'classes.niveau_id', '=', 'niveaux.id')
+                      ->orderBy('niveaux.ordre', $direction)
+                      ->orderBy('classes.suffixe', $direction)
+                      ->select('notes.*');
+                break;
+            case 'eleve':
+                $query->join('eleves', 'notes.eleve_id', '=', 'eleves.id')
+                      ->orderBy('eleves.nom', $direction)
+                      ->orderBy('eleves.prenom', $direction)
+                      ->select('notes.*');
+                break;
+            case 'matiere':
+                $query->join('matieres', 'notes.matiere_id', '=', 'matieres.id')
+                      ->orderBy('matieres.nom_matiere', $direction)
+                      ->select('notes.*');
+                break;
+            case 'valeur':
+                $query->orderBy('valeur', $direction);
+                break;
+            default:
+                $query->orderBy('created_at', $direction);
+        }
+        
+        $notes = $query->get();
+        
+        // Création du fichier Excel
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        
+        // Titre
+        $sheet->setTitle('Export Notes');
+        
+        // En-têtes
+        $headers = ['ID', 'Classe', 'Élève', 'Matricule', 'Matière', 'Période', 'Type de note', 'Note /20', 'Commentaire', 'Date de saisie'];
+        $columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        
+        // Style des en-têtes
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF'], 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '0D47A1']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        
+        foreach ($headers as $i => $header) {
+            $sheet->setCellValue($columns[$i] . '1', $header);
+            $sheet->getStyle($columns[$i] . '1')->applyFromArray($headerStyle);
+        }
+        
+        // Largeurs des colonnes
+        $sheet->getColumnDimension('A')->setWidth(8);
+        $sheet->getColumnDimension('B')->setWidth(20);
+        $sheet->getColumnDimension('C')->setWidth(25);
+        $sheet->getColumnDimension('D')->setWidth(15);
+        $sheet->getColumnDimension('E')->setWidth(25);
+        $sheet->getColumnDimension('F')->setWidth(15);
+        $sheet->getColumnDimension('G')->setWidth(15);
+        $sheet->getColumnDimension('H')->setWidth(12);
+        $sheet->getColumnDimension('I')->setWidth(40);
+        $sheet->getColumnDimension('J')->setWidth(18);
+        
+        // Remplissage des données
+        $row = 2;
+        foreach ($notes as $note) {
+            $classeName = $note->eleve->classeAnnee->classe->full_name ?? 
+                          ($note->eleve->classeAnnee->classe->niveau->nom ?? '') . ' ' . 
+                          ($note->eleve->classeAnnee->classe->suffixe ?? '');
+            
+            $sheet->setCellValue('A' . $row, $note->id);
+            $sheet->setCellValue('B' . $row, trim($classeName));
+            $sheet->setCellValue('C' . $row, $note->eleve->nom . ' ' . $note->eleve->prenom);
+            $sheet->setCellValue('D' . $row, $note->eleve->matricule ?? 'N/A');
+            $sheet->setCellValue('E' . $row, $note->matiere->nom_matiere);
+            $sheet->setCellValue('F' . $row, $note->periode->nom);
+            $sheet->setCellValue('G' . $row, $note->typeNote->nom);
+            $sheet->setCellValue('H' . $row, $note->valeur);
+            $sheet->setCellValue('I' . $row, $note->commentaire);
+            $sheet->setCellValue('J' . $row, $note->created_at->format('d/m/Y H:i:s'));
+            
+            // Alternance des couleurs
+            if ($row % 2 == 0) {
+                $sheet->getStyle('A' . $row . ':J' . $row)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('F5F5F5');
+            }
+            
+            $row++;
+        }
+        
+        // Freeze la première ligne
+        $sheet->freezePane('A2');
+        
+        // Téléchargement
+        $filename = 'notes_export_' . date('Y-m-d_His') . '.xlsx';
+        
+        return new StreamedResponse(function () use ($spreadsheet) {
+            $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+            $writer->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -489,7 +805,6 @@ class NoteController extends Controller
 
         foreach ($rows as $row) {
             $matricule   = trim($row[0] ?? '');
-            // Normaliser la note : remplacer virgule par point (Excel FR), supprimer espaces
             $note        = trim(str_replace([',', ' '], ['.', ''], (string) ($row[3] ?? '')));
             $commentaire = trim($row[4] ?? '');
 
@@ -503,7 +818,6 @@ class NoteController extends Controller
                 if (!is_numeric($note) || (float) $note < 0 || (float) $note > 20) {
                     $lineErrors[] = 'Note invalide (0-20)';
                 } else {
-                    // Arrondir à 2 décimales max
                     $note = round((float) $note, 2);
                 }
             }

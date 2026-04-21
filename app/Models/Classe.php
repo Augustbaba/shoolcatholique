@@ -26,4 +26,25 @@ class Classe extends Model
     {
         return $this->niveau->nom . ($this->suffixe ? ' ' . $this->suffixe : '');
     }
+
+    /**
+     * Scope pour trier par niveau et suffixe
+     */
+    public function scopeOrderByFullName($query)
+    {
+        return $query->join('niveaux', 'classes.niveau_id', '=', 'niveaux.id')
+                     ->orderBy('niveaux.ordre', 'asc')
+                     ->orderBy('classes.suffixe', 'asc')
+                     ->select('classes.*');
+    }
+
+    /**
+     * Scope pour trier par niveau et suffixe (sans jointure si déjà faite)
+     */
+    public function scopeOrderByNiveauAndSuffixe($query, $direction = 'asc')
+    {
+        return $query->with('niveau')
+                     ->orderBy(Niveau::select('ordre')->whereColumn('niveaux.id', 'classes.niveau_id'), $direction)
+                     ->orderBy('suffixe', $direction);
+    }
 }
